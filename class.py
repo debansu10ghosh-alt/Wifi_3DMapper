@@ -6,7 +6,7 @@ from panda3d.core import (
     CollisionHandlerQueue, BitMask32, WindowProperties, TextNode
 )
 from direct.gui.OnscreenText import OnscreenText
-from wifi_scanner import scan_wifi, estimate_distance
+from something_idk import scan_wifi, estimate_distance
 
 class WifiVisualizer(ShowBase):
     def __init__(self):
@@ -14,7 +14,7 @@ class WifiVisualizer(ShowBase):
         props = WindowProperties()
         props.setTitle("WiFi 3D Mapper - Press space to scan")
         self.win.requestProperties(props)
-        self.set_background_color(0, 0, 0, 1)
+        self.set_backgrou nd_color(0, 0, 0, 1)
         self.camera.setPos(0, -60, 20)
         self.camera.lookAt(0, 0, 0)
         self.master_dot = self.loader.loadModel("models/smiley")
