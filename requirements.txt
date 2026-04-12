@@ -1,4 +1,5 @@
-Panda3D==1.10.16
-pyobjc-core==12.1
-pyobjc-framework-Cocoa==12.1
-pyobjc-framework-CoreWLAN==12.1
+panda3d
+pyobjc-framework-CoreWLAN; sys_platform == 'darwin'
+
+
+
