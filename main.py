@@ -6,57 +6,49 @@ from panda3d.core import (
     CollisionHandlerQueue, BitMask32, WindowProperties, TextNode
 )
 from direct.gui.OnscreenText import OnscreenText
-from something_idk import scan_wifi, estimate_distance
+from class_scan import get_networks, estimate_distance, SYSTEM_OS
 
 class WifiVisualizer(ShowBase):
     def __init__(self):
         super().__init__()
         props = WindowProperties()
-        props.setTitle("WiFi 3D Mapper - Press space to scan")
+        props.setTitle(f"WiFi 3D Mapper - {SYSTEM_OS}")
         self.win.requestProperties(props)
         self.set_background_color(0, 0, 0, 1)
-        self.camera.setPos(0, -60, 20)
+        self.camera.setPos(0, -100, 30)
         self.camera.lookAt(0, 0, 0)
         self.master_dot = self.loader.loadModel("models/smiley")
         self.master_dot.setTextureOff(1)
         self.nodes = []
         self.active_callout = None
-        self.networks = [{"ssid": "Press Space", "bssid": "00:00", "rssi": -60, "security": "N/A"}]
-        self.load_scene()
         self.setup_picking()
         self.accept("space", self.refresh_scan)
+        self.refresh_scan()
 
     def refresh_scan(self):
-        new_nets = scan_wifi()
-        if new_nets:
-            if self.active_callout:
-                self.active_callout.removeNode()
-                self.active_callout = None
-            for node in self.nodes:
-                node.removeNode()
-            self.nodes = []
-            self.networks = new_nets
-            self.load_scene()
-
-    def load_scene(self):
-        for net in self.networks:
-            rssi = net["rssi"]
-            dist = estimate_distance(rssi)
-            brightness = max(0.1, min(1.0, (rssi + 100) / 70))
-            theta, phi = random.uniform(0, 6.28), random.uniform(0, 3.14)
-            x = dist * math.sin(phi) * math.cos(theta)
-            y = dist * math.sin(phi) * math.sin(theta)
-            z = abs(dist * math.cos(phi))
-            node = self.render.attachNewNode("star_node")
+        nets = get_networks()
+        for node in self.nodes: node.removeNode()
+        self.nodes = []
+        if not nets: return
+        for net in nets:
+            ssid_val = str(net.get("ssid", "")).strip()
+            if not ssid_val or ssid_val.lower() == "none" or ssid_val == "NULL":
+                continue
+            dist = estimate_distance(net["rssi"])
+            theta, phi = random.uniform(0, 6.28), math.acos(random.uniform(-1, 1))
+            x, y, z = dist * math.sin(phi) * math.cos(theta), dist * math.sin(phi) * math.sin(theta), dist * math.cos(phi)
+            node = self.render.attachNewNode("net_node")
             self.master_dot.instanceTo(node)
             node.setPos(x, y, z)
-            node.setScale(0.2 + (brightness * 0.4))
+            node.setCollideMask(BitMask32.allOn())
+            brightness = max(0.2, min(1.0, (net["rssi"] + 100) / 70))
             node.setColor(brightness, brightness, brightness, 1)
-            node.setTag("ssid", net["ssid"])
-            node.setTag("bssid", net["bssid"])
-            node.setTag("rssi", str(rssi))
+            node.setScale(0.6 + brightness)
+            node.setTag("ssid", ssid_val)
+            node.setTag("rssi", str(net["rssi"]))
+            node.setTag("bssid", str(net.get("bssid", "Unknown")))
+            node.setTag("security", str(net.get("security", "Unknown")))
             node.setTag("dist", str(dist))
-            node.setTag("security", net["security"])
             self.nodes.append(node)
 
     def setup_picking(self):
@@ -80,14 +72,13 @@ class WifiVisualizer(ShowBase):
                 picked = self.handler.getEntry(0).getIntoNodePath()
                 target = picked.findNetTag("ssid")
                 if not target.isEmpty():
-                    if self.active_callout:
-                        self.active_callout.removeNode()
-                    self.active_callout = OnscreenText(
-                        text=f"SSID: {target.getTag('ssid')}\nSecurity: {target.getTag('security')}\nMAC: {target.getTag('bssid')}\nSignal: {target.getTag('rssi')}dBm\nDist: ~{target.getTag('dist')}m",
-                        style=1, fg=(1, 1, 1, 1), bg=(0, 0, 0, 0.8),
-                        pos=(mpos.getX() + 0.05, mpos.getY() + 0.05),
-                        scale=0.04, align=TextNode.ALeft
-                    )
+                    if self.active_callout: self.active_callout.removeNode()
+                    info = (f"SSID: {target.getTag('ssid')}\nSecurity: {target.getTag('security')}\n"
+                            f"Signal: {target.getTag('rssi')}dBm\nMAC: {target.getTag('bssid')}\nDist: ~{target.getTag('dist')}m")
+                    self.active_callout = OnscreenText(text=info, style=1, fg=(1, 1, 1, 1), bg=(0.1, 0.1, 0.1, 0.85),
+                                                      pos=(mpos.getX() + 0.1, mpos.getY()), scale=0.045, align=TextNode.ALeft, mayChange=True)
+                    self.active_callout.setBin('fixed', 100)
+                    self.active_callout.setDepthTest(False)
 
 if __name__ == "__main__":
     app = WifiVisualizer()
